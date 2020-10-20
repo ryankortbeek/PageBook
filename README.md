@@ -1,1 +1,1 @@
-# CMPUT 291
+## CMPUT 291 - Mini Project 1
