@@ -194,6 +194,7 @@ class SignUpScreen(BaseScreen):
         city = input('> ')
         print('\nPlease enter the password you would like to use:')
         pwd = input('> ')
+        # TODO look into timezone with date()
         insertion = 'insert into users values (:new_uid, :name, :pwd, :city, date());'
         self.cursor.execute(insertion, {'new_uid': new_uid, 'name': name, 'pwd': pwd, 'city': city})
         self.connection.commit()
