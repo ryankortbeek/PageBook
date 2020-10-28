@@ -54,4 +54,7 @@ class DBManager:
         self.connection.commit()
 
     def close_connection(self):
+        """
+        Closes the connection with the database.
+        """
         self.connection.close()
