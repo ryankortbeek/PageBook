@@ -1,8 +1,8 @@
 import sys
-import sqlite3
 from os import path
 
 from screens import *
+from db_manager import *
 
 
 class PostBook:
@@ -17,16 +17,8 @@ class PostBook:
         """
         self.connection = None
         self.cursor = None
-        self._connect_to_database(db_path)
+        self.db_manager = DBManager(db_path)
         self._run()
-
-    def _connect_to_database(self, db_path):
-        """
-        Connects to the database at db_path.
-        :param db_path: path to the database this program is to run on
-        """
-        self.connection = sqlite3.connect(db_path)
-        self.cursor = self.connection.cursor()
 
     def _run(self):
         """
@@ -34,7 +26,7 @@ class PostBook:
         """
         user_select_screen = StartScreen()
         user_type = user_select_screen.run()
-        login_screen = LoginScreen(self.cursor) if user_type == '1' else SignUpScreen(self.connection, self.cursor)
+        login_screen = LoginScreen(self.db_manager) if user_type == '1' else SignUpScreen(self.db_manager)
         logged_in_uid = login_screen.run()
         # TODO: implement the main menu
         self.connection.close()
@@ -44,7 +36,6 @@ def main():
     assert (len(sys.argv) == 2), 'please enter the correct number of arguments - this program should be run using ' \
                                  '"python3 prj.py PATH_TO_DATABASE"'
     assert path.exists(sys.argv[1]), 'path does not exist - please specify a valid path'
-    assert sys.argv[1].endswith('.db'), 'invalid file type - please specify the path to a database'
     p = PostBook(sys.argv[1])
 
 

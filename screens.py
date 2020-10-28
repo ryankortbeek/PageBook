@@ -70,45 +70,19 @@ class LoginScreen(BaseScreen):
     Class representing the login screen.
     """
 
-    def __init__(self, cursor):
+    def __init__(self, db_manager):
         """
         Initializes an instance of this class.
-        :param cursor: sqlite cursor
+        :param db_manager: sqlite database manager
         """
         BaseScreen.__init__(self)
-        self.cursor = cursor
+        self.db_manager = db_manager
 
     def _setup(self):
         """
         Prints out the screen title.
         """
         print('LOGIN')
-
-    def _login_uid_exists(self, login_uid):
-        """
-        Checks if there is a user in the database with a user id that matches login_uid (match is case-insensitive).
-        :param login_uid: id of user to login as
-        :return: a boolean value representing whether or not there is a user in the database who has a user id equal
-                 to login_uid (case-insensitive)
-        """
-        query = 'select * from users where lower(uid)=:login_uid;'
-        self.cursor.execute(query, {'login_uid': login_uid.lower()})
-        users = self.cursor.fetchall()
-        return len(users) == 1
-
-    def _pwd_is_correct(self, login_uid, login_pwd):
-        """
-        Checks if there is a user in the database with a user id and password matching login_uid (match is case-
-        insensitive) and password (match is case-sensitive), respectively.
-        :param login_uid: id of user to login as
-        :param login_pwd: password of user to login as
-        :return: a boolean value representing whether or not there is a user in the database who has a user id equal
-                 to login_uid (case-insensitive) and a password equal to login_pwd (case-sensitive)
-        """
-        query = 'select * from users where lower(uid)=:login_uid and pwd=:login_pwd'
-        self.cursor.execute(query, {'login_uid': login_uid.lower(), 'login_pwd': login_pwd})
-        users = self.cursor.fetchall()
-        return len(users) == 1
 
     def run(self):
         """
@@ -117,10 +91,10 @@ class LoginScreen(BaseScreen):
         :return: the uid of the logged in user
         """
         login_uid = input('Please enter your user id (max 4 characters):\n')
-        while (len(login_uid) > 4) or (not self._login_uid_exists(login_uid)):
+        while (len(login_uid) > 4) or (not self.db_manager.uid_exists(login_uid)):
             login_uid = input('Invalid user id, try again:\n')
         login_pwd = input('Please enter your password:\n')
-        while not self._pwd_is_correct(login_uid, login_pwd):
+        while not self.db_manager.valid_login(login_uid, login_pwd):
             login_pwd = input('Incorrect password, try again:\n')
         print('Login Successful')
         sleep(0.5)
@@ -132,28 +106,19 @@ class SignUpScreen(BaseScreen):
     Class representing the sign up screen.
     """
 
-    def __init__(self, connection, cursor):
+    def __init__(self, db_manager):
+        """
+        Initializes an instance of this class.
+        :param db_manager: sqlite database manager
+        """
         BaseScreen.__init__(self)
-        self.connection = connection
-        self.cursor = cursor
+        self.db_manager = db_manager
 
     def _setup(self):
         """
         Prints out the screen title.
         """
         print('SIGN UP')
-
-    def _uid_already_exists(self, new_uid):
-        """
-        Checks if there is a user in the database that already has new_uid (match is case-insensitive).
-        :param new_uid: desired new user id
-        :return: a boolean value representing whether or not there is already a user in the database who has a user id
-                 equal to new_uid (case-insensitive)
-        """
-        query = 'select * from users where lower(uid)=:new_uid;'
-        self.cursor.execute(query, {'new_uid': new_uid.lower()})
-        users = self.cursor.fetchall()
-        return len(users) == 1
 
     def run(self):
         """
@@ -162,14 +127,12 @@ class SignUpScreen(BaseScreen):
         :return: the uid of the logged in user
         """
         new_uid = input('Please enter a user id that you would like to use (max 4 characters):\n')
-        while (len(new_uid) > 4) or (self._uid_already_exists(new_uid)):
+        while (len(new_uid) > 4) or (self.db_manager.uid_exists(new_uid)):
             new_uid = input('The entered user id either has more than 4 characters or already exists, try again:\n')
         name = input('Please enter your name:\n')
         city = input('Please enter the name of the city you live in:\n')
         pwd = input('Please enter the password you would like to use:\n')
-        insertion = 'insert into users values (:new_uid, :name, :pwd, :city, date());'
-        self.cursor.execute(insertion, {'new_uid': new_uid, 'name': name, 'pwd': pwd, 'city': city})
-        self.connection.commit()
+        self.db_manager.add_user(new_uid, name, pwd, city)
         print('Sign Up Successful - you will now be logged in')
         sleep(0.5)
         return new_uid
