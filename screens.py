@@ -9,6 +9,23 @@ def clear_screen():
     os.system('clear')
 
 
+def select_from_menu(valid_inputs):
+    """
+    This allows a user to enter an input from a selection of values denoted by valid_inputs. It is assumed that the
+    "menu" is already printed as this function just grabs the users input and checks if it is in the passed list
+    valid_inputs (therefore being valid). If the input is invalid the user is prompted to make another selection
+    until a valid input is entered.
+    :param valid_inputs: list including all the inputs that should be considered valid
+    :return: a string corresponding to the users valid selection
+    """
+    selection = input('> ')
+    while selection not in valid_inputs:
+        print('"{}" is an invalid selection, please enter a valid selection from the menu above.'
+              .format(selection))
+        selection = input('> ')
+    return selection
+
+
 class BaseScreen:
     """
     Base class representing a screen. Child classes must implement the _setup and run methods described below.
@@ -48,39 +65,34 @@ class StartScreen(BaseScreen):
         """
         Prints out the screen title and the options supported by this screen.
         """
-        start_msg = '''WELCOME TO___________________________________________________
-                                                            /
-       ____________________________________                /
-      /  ___   /  ___   /  _______/  _____/               /
-     /  /__/  /  /__/  /  / _____/  /__                  /
-    /  ______/  ___   /  / /_   /  ___/                 /
-   /  /     /  /  /  /  /___/  /  /____                /
-  /__/     /__/__/__/_________/_______/____  ___      /
-          /  __  / /  _____  /  ____   /  / /  /     /
-         /  /_/ /_/  /   /  /  /   /  /  /_/  /_    /
-        /  ___   /  /   /  /  /   /  /  ____   /   /
-       /  /__/  /  /___/  /  /___/  /  /   /  /   /
-      /________/_________/_________/__/   /__/   /
-                                                /
-_______________________________________________/
-
-Please select the type of user that you are:
-\t[1] registered user
-\t[2] unregistered user'''
-        print(start_msg)
+        print('WELCOME TO___________________________________________________\n'
+              '                                                            /\n'
+              '       ____________________________________                /\n'
+              '      /  ___   /  ___   /  _______/  _____/               /\n'
+              '     /  /__/  /  /__/  /  / _____/  /__                  /\n'
+              '    /  ______/  ___   /  / /_   /  ___/                 /\n'
+              '   /  /     /  /  /  /  /___/  /  /____                /\n'
+              '  /__/     /__/__/__/_________/_______/____  ___      /\n'
+              '          /  __  / /  _____  /  ____   /  / /  /     /\n'
+              '         /  /_/ /_/  /   /  /  /   /  /  /_/  /_    /\n'
+              '        /  ___   /  /   /  /  /   /  /  ____   /   /\n'
+              '       /  /__/  /  /___/  /  /___/  /  /   /  /   /\n'
+              '      /________/_________/_________/__/   /__/   /\n'
+              '                                                /\n'
+              '_______________________________________________/\n'
+              '\n'
+              'Please select the type of user that you are:\n'
+              '\t[1] registered user\n'
+              '\t[2] unregistered user')
 
     def run(self):
         """
         Gets the user's type and returns it.
-        :return: an integer corresponding to the user's type
+        :return: a string corresponding to the type of user that the current user is
         """
+        types = {'1': 'registered', '2': 'unregistered'}
         valid_inputs = ['1', '2']
-        user_type = input('> ')
-        while user_type not in valid_inputs:
-            print('"{}" is an invalid selection, please enter a valid selection from the menu above.'
-                  .format(user_type))
-            user_type = input('> ')
-        return user_type
+        return types[select_from_menu(valid_inputs)]
 
 
 class LoginScreen(BaseScreen):
@@ -164,3 +176,41 @@ class SignUpScreen(BaseScreen):
         print('\nSign Up Successful - you will now be logged in')
         sleep(0.5)
         return new_uid
+
+
+class MainMenuScreen(BaseScreen):
+    """
+    Class representing the login screen.
+    """
+
+    def __init__(self, current_uid):
+        """
+        Initializes an instance of this class and sets the uid of the user that is currently logged in as a class
+        attribute.
+        :param current_uid: the uid of the user that is currently logged in
+        """
+        self.current_user = current_uid
+        BaseScreen.__init__(self)
+
+    def _setup(self):
+        """
+        Prints out the screen title and the options supported by this screen.
+        """
+        print('MAIN MENU\n'
+              '\n'
+              'Welcome {}!\n'
+              '\n'
+              'Please select the task that you would like to perform:\n'
+              '\t[1] Post a question\n'
+              '\t[2] Search for posts\n'
+              '\t[3] Logout\n'
+              '\t[4] Exit\n'.format(self.current_user))
+
+    def run(self):
+        """
+        Gets the task that the user would like to perform and returns it.
+        :return: a string representing the task the user would like to perform
+        """
+        tasks = {'1': 'post question', '2': 'search', '3': 'logout', '4': 'exit'}
+        valid_inputs = ['1', '2', '3', '4']
+        return tasks[select_from_menu(valid_inputs)]
