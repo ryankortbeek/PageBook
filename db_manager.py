@@ -49,6 +49,9 @@ class DBManager:
         :param pwd: password of new user
         :param city: city of new user
         """
-        insertion = 'insert into users values (:new_uid, :name, :pwd, :city, date());'
+        insertion = 'insert into users values (:new_uid, :name, :pwd, :city, date(\'now\', \'localtime\'));'
         self.cursor.execute(insertion, {'new_uid': new_uid, 'name': name, 'pwd': pwd, 'city': city})
         self.connection.commit()
+
+    def close_connection(self):
+        self.connection.close()
