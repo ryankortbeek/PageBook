@@ -43,7 +43,8 @@ class PostBook:
             mm_screen = MainMenuScreen(self.current_user)
             task = mm_screen.run()
             if task == 'post question':
-                # TODO implement post question functionality
+                post_question_screen = PostQuestionScreen(self.current_user, self.db_manager)
+                post_question_screen.run()
                 pass
             elif task == 'search':
                 # TODO implement search functionality
