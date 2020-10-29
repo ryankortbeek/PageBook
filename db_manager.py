@@ -34,7 +34,7 @@ class DBManager:
         :param pid_to_check: pid to check whether it already exists
         :return: boolean value corresponding to whether or not pid_to_check already exists (True if already exists)
         """
-        # TODO: verify this query
+        # TODO: verify this query when answer posts are added to the answers table
         query = 'select * from posts, questions, answers where lower(posts.pid)=:pid_to_check or lower(' \
                 'questions.pid)=:pid_to_check or lower(answers.pid)=:pid_to_check; '
         self.cursor.execute(query, {'pid_to_check': pid_to_check.lower()})
@@ -85,10 +85,9 @@ class DBManager:
         generates a unique pid (one that is not currently used by any question, answer, or post) and then inserts the
         new question in the posts table with pid, the current date, new_question_title, new_question_body, and the
         poster and and the question table with pid.
-        :param new_question_title:
-        :param new_question_body:
-        :param poster:
-        :return:
+        :param new_question_title: title of question to post
+        :param new_question_body: body of question to post
+        :param poster: uid of user that is currently logged in and posting the question
         """
         unique = False
         new_pid = ''
