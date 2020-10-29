@@ -31,10 +31,14 @@ class BaseScreen:
     Base class representing a screen. Child classes must implement the _setup and run methods described below.
     """
 
-    def __init__(self):
+    def __init__(self, current_uid=None, db_manager=None):
         """
         Clears the screen upon initialization and runs the child class' _setup method.
+        :param current_uid: the uid of the user that is currently logged in (optional parameter)
+        :param db_manager: sqlite database manager (optional parameter)
         """
+        self.current_user = None if current_uid is None else current_uid
+        self.db_manager = None if db_manager is None else db_manager
         clear_screen()
         self._setup()
 
@@ -83,7 +87,7 @@ class StartScreen(BaseScreen):
               '\n'
               'Please select the type of user that you are:\n'
               '\t[1] registered user\n'
-              '\t[2] unregistered user')
+              '\t[2] unregistered user\n')
 
     def run(self):
         """
@@ -105,8 +109,7 @@ class LoginScreen(BaseScreen):
         Initializes an instance of this class.
         :param db_manager: sqlite database manager
         """
-        BaseScreen.__init__(self)
-        self.db_manager = db_manager
+        BaseScreen.__init__(self, db_manager=db_manager)
 
     def _setup(self):
         """
@@ -145,8 +148,7 @@ class SignUpScreen(BaseScreen):
         Initializes an instance of this class.
         :param db_manager: sqlite database manager
         """
-        BaseScreen.__init__(self)
-        self.db_manager = db_manager
+        BaseScreen.__init__(self, db_manager=db_manager)
 
     def _setup(self):
         """
@@ -171,7 +173,6 @@ class SignUpScreen(BaseScreen):
         city = input('> ')
         print('\nPlease enter the password you would like to use:')
         pwd = input('> ')
-        # TODO look into timezone with date()
         self.db_manager.add_user(new_uid, name, pwd, city)
         print('\nSign Up Successful - you will now be logged in')
         sleep(0.5)
@@ -185,12 +186,10 @@ class MainMenuScreen(BaseScreen):
 
     def __init__(self, current_uid):
         """
-        Initializes an instance of this class and sets the uid of the user that is currently logged in as a class
-        attribute.
+        Initializes an instance of this class.
         :param current_uid: the uid of the user that is currently logged in
         """
-        self.current_user = current_uid
-        BaseScreen.__init__(self)
+        BaseScreen.__init__(self, current_uid=current_uid)
 
     def _setup(self):
         """
@@ -214,3 +213,56 @@ class MainMenuScreen(BaseScreen):
         tasks = {'1': 'post question', '2': 'search', '3': 'logout', '4': 'exit'}
         valid_inputs = ['1', '2', '3', '4']
         return tasks[select_from_menu(valid_inputs)]
+
+
+class PostQuestionScreen(BaseScreen):
+    """
+    Class representing the post question screen.
+    """
+
+    def __init__(self, current_uid, db_manager):
+        """
+        Initializes an instance of this class.
+        :param current_uid: the uid of the user that is currently logged in (optional parameter)
+        :param db_manager: sqlite database manager (optional parameter)
+        """
+        BaseScreen.__init__(self, current_uid=current_uid, db_manager=db_manager)
+        self.question_title = None
+        self.question_body = None
+
+    def _setup(self):
+        print('POST QUESTION')
+
+    def _get_new_question_data(self):
+        """
+        Prompts the user to enter the title and body texts of the question they want to add and sets the
+        question_title and question_body class attributes accordingly.
+        """
+        print('\nPlease enter the title of your question:')
+        self.question_title = input('> ')
+        print('\nPlease enter the body of your question:')
+        self.question_body = input('> ')
+
+    def run(self):
+        """
+        Gets the title and body texts of the question that the user wants to add and then confirms with the user that
+        they want to post the question that they entered - allowing them to either confirm and post their question,
+        re-enter the question title and body, or return to the main menu and not post the question.
+        """
+        valid_inputs = ['Y', 'y', 'E', 'e', 'N', 'n']
+        confirm = False
+        while not confirm:
+            self._get_new_question_data()
+            print('\nQuestion Summary\nTitle: {}\nBody: {}\n'.format(self.question_title, self.question_body))
+            print('Please select one of the following actions:\n'
+                  '\t[Y/y] To confirm and post the question above\n'
+                  '\t[E/e] To re-enter the question title and body\n'
+                  '\t[N/n] To return to the main menu\n')
+            selection = select_from_menu(valid_inputs)
+            if selection.lower() == 'y':
+                self.db_manager.post_new_question(self.question_title, self.question_body, self.current_user)
+                print('\nQuestion Posted Successfully - you will now be returned to the main menu')
+                sleep(0.5)
+                break
+            elif selection.lower() == 'n':
+                break
