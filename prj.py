@@ -45,7 +45,6 @@ class PostBook:
             if task == 'post question':
                 post_question_screen = PostQuestionScreen(self.current_user, self.db_manager)
                 post_question_screen.run()
-                pass
             elif task == 'search':
                 # TODO implement search functionality
                 pass
