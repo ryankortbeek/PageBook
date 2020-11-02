@@ -34,9 +34,7 @@ class DBManager:
         :param pid_to_check: pid to check whether it already exists
         :return: boolean value corresponding to whether or not pid_to_check already exists (True if already exists)
         """
-        # TODO: verify this query when answer posts are added to the answers table
-        query = 'select * from posts, questions, answers where lower(posts.pid)=:pid_to_check or lower(' \
-                'questions.pid)=:pid_to_check or lower(answers.pid)=:pid_to_check; '
+        query = 'select * from posts, questions, answers where lower(posts.pid)=:pid_to_check;'
         self.cursor.execute(query, {'pid_to_check': pid_to_check.lower()})
         posts = self.cursor.fetchall()
         return len(posts) >= 1
@@ -62,7 +60,7 @@ class DBManager:
         :return: a boolean value representing whether or not there is a user in the database who has a user id equal
                  to login_uid (case-insensitive) and a password equal to login_pwd (case-sensitive)
         """
-        query = 'select * from users where lower(uid)=:login_uid and pwd=:login_pwd'
+        query = 'select * from users where lower(uid)=:login_uid and pwd=:login_pwd;'
         self.cursor.execute(query, {'login_uid': login_uid.lower(), 'login_pwd': login_pwd})
         users = self.cursor.fetchall()
         return len(users) >= 1
