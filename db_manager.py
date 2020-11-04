@@ -267,7 +267,7 @@ class DBManager:
         """
         query = 'select q.theaid from questions q where q.pid=(select a.qid from answers a where lower(a.pid)=:pid);'
         self.cursor.execute(query, {'pid': pid.lower()})
-        return False if self.cursor.fetchone() is None else True
+        return False if self.cursor.fetchone()[0] is None else True
 
     def update_accepted_answer(self, pid_of_new_answer):
         """
@@ -291,7 +291,7 @@ class DBManager:
         """
         query = 'select * from ubadges where lower(uid)=:poster and bdate=date(\'now\', \'localtime\');'
         self.cursor.execute(query, {'poster': poster.lower()})
-        return True if self.cursor.fetchone() is None else True
+        return True if self.cursor.fetchone() is None else False
 
     def get_existing_badges(self):
         """
@@ -314,8 +314,10 @@ class DBManager:
                      badges table)
         :param uid: uid of user to give badge to
         """
+        query = 'select bname from badges where lower(bname)=:name;'
+        bname = self.cursor.execute(query, {'name': name.lower()}).fetchone()[0]
         insertion = 'insert into ubadges values (:uid, date(\'now\', \'localtime\'), :name);'
-        self.cursor.execute(insertion, {'uid': uid, 'name': name})
+        self.cursor.execute(insertion, {'uid': uid, 'name': bname})
         self.connection.commit()
 
     def add_tag_to_post(self, pid, tag_name):

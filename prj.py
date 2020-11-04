@@ -29,8 +29,15 @@ class PostBook:
         """
         start_screen = StartScreen()
         user_type = start_screen.run()
-        login_screen = LoginScreen(self.db_manager) if user_type == 'registered' else SignUpScreen(self.db_manager)
-        return login_screen.run()
+        if user_type == 'registered':
+            login_screen = LoginScreen(self.db_manager)
+            return login_screen.run()
+        elif user_type == 'unregistered':
+            login_screen = SignUpScreen(self.db_manager)
+            return login_screen.run()
+        else:
+            self.running = False
+            return None
 
     def run(self):
         """
@@ -40,6 +47,8 @@ class PostBook:
         while self.running:
             if self.current_user is None:
                 self.current_user = self._run_login()
+                if not self.running:
+                    break
             mm_screen = MainMenuScreen(self.current_user)
             task = mm_screen.run()
             if task == 'post question':

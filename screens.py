@@ -87,15 +87,16 @@ class StartScreen(BaseScreen):
               '\n'
               'Please select the type of user that you are:\n'
               '\t[1] registered user\n'
-              '\t[2] unregistered user')
+              '\t[2] unregistered user\n'
+              '\t[3] exit')
 
     def run(self):
         """
         Gets the user's type and returns it.
         :return: a string corresponding to the type of user that the current user is
         """
-        types = {'1': 'registered', '2': 'unregistered'}
-        valid_inputs = ['1', '2']
+        types = {'1': 'registered', '2': 'unregistered', '3': 'exit'}
+        valid_inputs = ['1', '2', '3']
         return types[select_from_menu(valid_inputs)]
 
 
@@ -135,8 +136,7 @@ class LoginScreen(BaseScreen):
             login_pwd = input('> ')
         print('\nLogin Successful')
         sleep(0.5)
-        self.get_uid_from_table(login_uid)
-        return login_uid
+        return self.db_manager.get_uid_from_table(login_uid)
 
 
 class SignUpScreen(BaseScreen):
@@ -257,7 +257,7 @@ class PostQuestionScreen(BaseScreen):
             print('Please select one of the following actions:\n'
                   '\t[Y/y] To confirm and post the question above\n'
                   '\t[E/e] To re-enter the question title and body\n'
-                  '\t[N/n] To return to the main menu\n')
+                  '\t[N/n] To return to the main menu')
             selection = select_from_menu(valid_inputs)
             if selection.lower() == 'y':
                 self.db_manager.new_post(self.question_title, self.question_body, self.current_user)
@@ -329,7 +329,7 @@ class SearchResultsScreen(BaseScreen):
         :return: the action that the user selected - will either be a string if they have selected to return to the
                  main menu or navigate to the next page or a tuple if they want to perform an action on a post
         """
-        valid_inputs = [str(i) for i in range(current_page * 5, page_upper_bound + 1, 1)]
+        valid_inputs = [str(i) for i in range((current_page * 5) + 1, page_upper_bound + 1, 1)]
         if num_matches == page_upper_bound:
             valid_inputs += ['a']
             print('\nPlease select the action that you would like to take:\n'
@@ -384,6 +384,7 @@ class SearchResultsScreen(BaseScreen):
                 elif action == 'next page':
                     clear_screen()
                     print('SEARCH RESULTS')
+                    current_page += 1
                 else:
                     return self.sorted_search_matches[int(action) - 1]
 
@@ -548,7 +549,7 @@ class PostActionScreen(BaseScreen):
         self.db_manager.give_badge(badge_to_give, self.poster)
         clear_screen()
         print('POST ACTION')
-        print('\n{} has been given a badge with the name "{}" - please enter any key to return to the main menu:'
+        print('\n{} has successfully been given the badge - please enter any key to return to the main menu:'
               .format(self.poster, badge_to_give))
         input('> ')
 
@@ -562,10 +563,10 @@ class PostActionScreen(BaseScreen):
         clear_screen()
         print('POST ACTION')
         if success:
-            print('\nSuccessfully added tag {} to {} - please enter any key to return to the main menu:'
+            print('\nSuccessfully added tag "{}" to {} - please enter any key to return to the main menu:'
                   .format(tag_name, self.pid))
         else:
-            print('\nUnable to add tag {} to {} as it already exists - '
+            print('\nUnable to add tag "{}" to {} as it already exists - '
                   'please enter any key to return to the main menu:'.format(tag_name, self.pid))
         input('> ')
 
@@ -615,6 +616,11 @@ class PostActionScreen(BaseScreen):
         privileged users. After an action has been completed the user is directed back to the main menu.
         """
         choices = self._display_options()
+        if len(choices) == 0:
+            print('\t[ ] Return to main menu (you are not eligible to perform any actions on this post at this time) '
+                  '- press any key to return')
+            input('> ')
+            return
         valid_inputs = list(choices.keys())
         selection = select_from_menu(valid_inputs)
         action = choices[selection]
