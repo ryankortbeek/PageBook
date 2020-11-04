@@ -34,9 +34,9 @@ class DBManager:
         :param pid: pid of to check if in questions table
         :return: boolean value corresponding to whether pid is in the questions tables or not
         """
-        post_is_question_query = 'select * from questions where pid=:pid;'
-        self.cursor.execute(post_is_question_query, {'pid': pid})
-        return len(self.cursor.fetchall()) == 1
+        post_is_question_query = 'select * from questions where lower(pid)=:pid;'
+        self.cursor.execute(post_is_question_query, {'pid': pid.lower()})
+        return False if self.cursor.fetchone() is None else True
 
     def _post_is_answer(self, pid):
         """
@@ -44,9 +44,9 @@ class DBManager:
         :param pid: pid of to check if in answers table
         :return: boolean value corresponding to whether pid is in the answers tables or not
         """
-        post_is_answer_query = 'select * from answers where pid=:pid;'
-        self.cursor.execute(post_is_answer_query, {'pid': pid})
-        return len(self.cursor.fetchall()) == 1
+        post_is_answer_query = 'select * from answers where lower(pid)=:pid;'
+        self.cursor.execute(post_is_answer_query, {'pid': pid.lower()})
+        return False if self.cursor.fetchone() is None else True
 
     def _get_question_info(self, pid):
         """
@@ -58,20 +58,20 @@ class DBManager:
         """
         num_votes_query = 'select p.pid, ifnull(count(v.pid), 0) as num_votes ' \
                           'from posts p, votes v ' \
-                          'where p.pid=:pid and v.pid=p.pid group by (p.pid)'
+                          'where lower(p.pid)=:pid and v.pid=p.pid group by (p.pid)'
         num_ans_query = 'select p.pid, ifnull(count(a.pid), 0) as num_answers ' \
                         'from posts p, answers a ' \
-                        'where p.pid=:pid and a.qid=p.pid group by (p.pid)'
+                        'where lower(p.pid)=:pid and a.qid=p.pid group by (p.pid)'
         num_votes_and_questions_a = 'select pid, num_votes, num_answers ' \
                                     'from (' + num_votes_query + ') left outer join (' + num_ans_query + ') using (pid)'
         num_votes_and_questions_b = 'select pid, num_votes, num_answers ' \
                                     'from (' + num_ans_query + ') left outer join (' + num_votes_query + ') using (pid)'
         # Need to do a full join in order to cover all the possible cases
         num_votes_and_questions = num_votes_and_questions_a + ' union ' + num_votes_and_questions_b
-        question_info_query = 'select p.pid, p.pdate, p.title, p.body, p.poster from posts p where p.pid=:pid'
+        question_info_query = 'select p.pid, p.pdate, p.title, p.body, p.poster from posts p where lower(p.pid)=:pid'
         query = 'select pid, pdate, title, body, poster, ifnull(num_answers, 0), ifnull(num_votes, 0) ' \
                 'from (' + question_info_query + ') left outer join (' + num_votes_and_questions + ') using (pid);'
-        self.cursor.execute(query, {'pid': pid})
+        self.cursor.execute(query, {'pid': pid.lower()})
         return self.cursor.fetchone()
 
     def _get_answer_info(self, pid):
@@ -83,12 +83,31 @@ class DBManager:
         """
         num_votes_query = 'select p.pid, ifnull(count(v.pid), 0) as num_votes ' \
                           'from posts p, votes v ' \
-                          'where p.pid=:pid and v.pid=p.pid group by (p.pid)'
-        answer_info_query = 'select p.pid, p.pdate, p.title, p.body, p.poster from posts p where p.pid=:pid'
+                          'where lower(p.pid)=:pid and v.pid=p.pid group by (p.pid)'
+        answer_info_query = 'select p.pid, p.pdate, p.title, p.body, p.poster from posts p where lower(p.pid)=:pid'
         query = 'select pid, pdate, title, body, poster, ifnull(num_votes, 0) ' \
                 'from (' + answer_info_query + ') left outer join (' + num_votes_query + ') using (pid);'
-        self.cursor.execute(query, {'pid': pid})
+        self.cursor.execute(query, {'pid': pid.lower()})
         return self.cursor.fetchone()
+
+    def _get_printable_post_info(self, sorted_pids):
+        """
+        Gets the pid, pdate, title, body, poster, num_answers (only in the case that the post of relevance is a
+        question), and num_votes for each post identified by the pids in sorted_pids. Returns a list of these tuples.
+        :param sorted_pids: List of tuples (pid, # of keywords matched) where the pids correspond to posts in the posts
+                            table that matched at least one of the searched keywords, sorted in order from
+                            pids corresponding to posts that matched the largest number of keywords first
+        :return: List of the tuples corresponding to the info retreived from the database by either
+                 _get_question_info(..) or _get_answer_info(..)
+        """
+        printable_post_info = []
+        for i in range(len(sorted_pids)):
+            post_pid = sorted_pids[i][0]
+            if self._post_is_question(post_pid):
+                printable_post_info.append(self._get_question_info(post_pid))
+            elif self._post_is_answer(post_pid):
+                printable_post_info.append(self._get_answer_info(post_pid))
+        return printable_post_info
 
     def pid_exists(self, pid_to_check):
         """
@@ -98,8 +117,7 @@ class DBManager:
         """
         query = 'select * from posts where lower(posts.pid)=:pid_to_check;'
         self.cursor.execute(query, {'pid_to_check': pid_to_check.lower()})
-        posts = self.cursor.fetchall()
-        return len(posts) >= 1
+        return False if self.cursor.fetchone() is None else True
 
     def uid_exists(self, uid_to_check):
         """
@@ -110,8 +128,7 @@ class DBManager:
         """
         query = 'select * from users where lower(uid)=:uid_to_check;'
         self.cursor.execute(query, {'uid_to_check': uid_to_check.lower()})
-        users = self.cursor.fetchall()
-        return len(users) >= 1
+        return False if self.cursor.fetchone() is None else True
 
     def valid_login(self, login_uid, login_pwd):
         """
@@ -124,8 +141,17 @@ class DBManager:
         """
         query = 'select * from users where lower(uid)=:login_uid and pwd=:login_pwd;'
         self.cursor.execute(query, {'login_uid': login_uid.lower(), 'login_pwd': login_pwd})
-        users = self.cursor.fetchall()
-        return len(users) >= 1
+        return False if self.cursor.fetchone() is None else True
+
+    def get_uid_from_table(self, uid):
+        """
+        Gets the uid corresponding to uid as its stored in the users table. Assumes uid exists.
+        :param uid: uid to get proper uid of from users table (case as registered)
+        :return: uid from users table corresponding to uid
+        """
+        query = 'select uid from users where lower(uid)=:uid;'
+        self.cursor.execute(query, {'uid': uid.lower()})
+        return self.cursor.fetchone()[0]
 
     def add_user(self, new_uid, name, pwd, city):
         """
@@ -171,9 +197,13 @@ class DBManager:
 
     def execute_search(self, keywords_to_search):
         """
-        Searches the database
-        :param keywords_to_search:
-        :return:
+        Searches the posts table of the database. Retrieves all posts that contain at least one keyword from the list
+        keywords_to_search in either their title, body, or tag fields.
+        :param keywords_to_search: list of keywords to search (ideally represents the space separated keywords enterred
+                                   by the user at the search screen)
+        :return: a list corresponding to the pids of the posts that contain at least one keyword from the list
+                 keywords_to_search in either their title, body, or tag fields, sorted by the number of keywords
+                 matched in descending order.
         """
         search_results = {}
         search = 'select p.pid ' \
@@ -189,26 +219,7 @@ class DBManager:
                     search_results[post] += 1
                 else:
                     search_results[post] = 1
-        return sorted(search_results.items(), key=lambda x: x[1], reverse=True)
-
-    def get_printable_post_info(self, sorted_pids):
-        """
-        Gets the pid, pdate, title, body, poster, num_answers (only in the case that the post of relevance is a
-        question), and num_votes for each post identified by the pids in sorted_pids. Returns a list of these tuples.
-        :param sorted_pids: List of pids that correspond to posts in the posts table - in the typical use case they are
-                            the pids of posts that matched at least one of the searched keywords, sorted in order from
-                            pids corresponding to posts that matched the largest number of keywords first
-        :return: List of the tuples corresponding to the info retreived from the database by either
-                 _get_question_info(..) or _get_answer_info(..)
-        """
-        printable_post_info = []
-        for i in range(len(sorted_pids)):
-            post_pid = sorted_pids[i][0]
-            if self._post_is_question(post_pid):
-                printable_post_info.append(self._get_question_info(post_pid))
-            elif self._post_is_answer(post_pid):
-                printable_post_info.append(self._get_answer_info(post_pid))
-        return printable_post_info
+        return self._get_printable_post_info(sorted(search_results.items(), key=lambda x: x[1], reverse=True))
 
     def get_vote_eligibility(self, uid, pid):
         """
@@ -216,11 +227,11 @@ class DBManager:
         :param uid: uid of user to check whether they have already voted on the post identified by pid
         :param pid: pid of post to check
         :return: boolean value corresponding to whether the user identified by uid has already voted on post pid (True
-                 if they have, False otherwise)
+                 if they have not yet, False otherwise)
         """
-        query = 'select * from votes where pid=:pid and uid=:uid;'
-        self.cursor.execute(query, {'pid': pid, 'uid': uid})
-        return len(self.cursor.fetchall()) == 0
+        query = 'select * from votes where lower(pid)=:pid and lower(uid)=:uid;'
+        self.cursor.execute(query, {'pid': pid.lower(), 'uid': uid.lower()})
+        return True if self.cursor.fetchone() is None else False
 
     def check_privilege(self, uid):
         """
@@ -228,9 +239,9 @@ class DBManager:
         :param uid: uid of user to check if privileged
         :return: boolean value corresponding to whether the user identified by uid is a privileged user (True if so)
         """
-        query = 'select * from privileged where uid=:uid;'
-        self.cursor.execute(query, {'uid': uid})
-        return len(self.cursor.fetchall()) >= 1
+        query = 'select * from privileged where lower(uid)=:uid;'
+        self.cursor.execute(query, {'uid': uid.lower()})
+        return False if self.cursor.fetchone() is None else True
 
     def add_vote(self, pid, current_user):
         """
@@ -239,8 +250,8 @@ class DBManager:
         :param current_user: uid of user who is adding a vote
         """
         # Generates a vno by adding 1 to the current max vno associated with the post
-        query = 'select ifnull(max(vno), 0) from votes where pid=:pid;'
-        self.cursor.execute(query, {'pid': pid})
+        query = 'select ifnull(max(vno), 0) from votes where lower(pid)=:pid;'
+        self.cursor.execute(query, {'pid': pid.lower()})
         highest_current_vno = self.cursor.fetchone()[0]
         new_vno = highest_current_vno + 1
         insertion = 'insert into votes values (:pid, :vno, date(\'now\', \'localtime\'), :current_user);'
@@ -254,9 +265,9 @@ class DBManager:
         :return: boolean value corresponding to whether the question linked to the answer identified by pid has
                  an accepted answer (True if so, False otherwise)
         """
-        query = 'select q.theaid from questions q where q.pid=(select a.qid from answers a where a.pid=:pid);'
-        self.cursor.execute(query, {'pid': pid})
-        return False if self.cursor.fetchone()[0] is None else True
+        query = 'select q.theaid from questions q where q.pid=(select a.qid from answers a where lower(a.pid)=:pid);'
+        self.cursor.execute(query, {'pid': pid.lower()})
+        return False if self.cursor.fetchone() is None else True
 
     def update_accepted_answer(self, pid_of_new_answer):
         """
@@ -264,8 +275,8 @@ class DBManager:
         identified by pid_of_new_answer.
         :param pid_of_new_answer: pid of answer to set as the accepted answer to the question it is linked to
         """
-        query = 'select qid from answers where pid=:pid_of_new_answer;'
-        qid = self.cursor.execute(query, {'pid_of_new_answer': pid_of_new_answer}).fetchone()[0]
+        query = 'select qid from answers where lower(pid)=:pid_of_new_answer;'
+        qid = self.cursor.execute(query, {'pid_of_new_answer': pid_of_new_answer.lower()}).fetchone()[0]
         update = 'update questions set theaid=:pid_of_new_answer where pid=:qid;'
         self.cursor.execute(update, {'pid_of_new_answer': pid_of_new_answer, 'qid': qid})
         self.connection.commit()
@@ -278,23 +289,31 @@ class DBManager:
         :return: boolean value corresponding to whether the user identified by poster has already received a
                  badge on the current date (False if so, True otherwise)
         """
-        query = 'select * from ubadges where uid=:poster and bdate=date(\'now\', \'localtime\');'
-        self.cursor.execute(query, {'poster': poster})
-        return len(self.cursor.fetchall()) == 0
+        query = 'select * from ubadges where lower(uid)=:poster and bdate=date(\'now\', \'localtime\');'
+        self.cursor.execute(query, {'poster': poster.lower()})
+        return True if self.cursor.fetchone() is None else True
+
+    def get_existing_badges(self):
+        """
+        Gets a list of the names of the badges that exist in the badges table.
+        :return: list of the names of the badges that exist in the badges table
+        """
+        bname_list = []
+        query = 'select bname from badges;'
+        self.cursor.execute(query)
+        bnames = self.cursor.fetchall()
+        for bname in bnames:
+            bname_list.append(bname[0])
+        return bname_list
 
     def give_badge(self, name, uid):
         """
         Creates a badge with name and adds it to the badges table if a badge with that name does not already exist. Then
         gives the user identified by uid the badge.
-        :param name: name of badge to give
+        :param name: name of badge to give (it is assumed that this name has already been verified that it is in the
+                     badges table)
         :param uid: uid of user to give badge to
         """
-        query = 'select * from badges where bname=:name;'
-        self.cursor.execute(query, {'name': name})
-        if self.cursor.fetchall() == 0:
-            insertion = 'insert into badges (bname) values (:name);'
-            self.cursor.execute(insertion, {'name': name})
-            self.connection.commit()
         insertion = 'insert into ubadges values (:uid, date(\'now\', \'localtime\'), :name);'
         self.cursor.execute(insertion, {'uid': uid, 'name': name})
         self.connection.commit()
@@ -308,8 +327,8 @@ class DBManager:
                  name that has been given to the post identified by pid this function returns False, otherwise it
                  returns True after successfully adding the tag
         """
-        query = 'select * from tags where pid=:pid and tag=:tag_name;'
-        self.cursor.execute(query, {'pid': pid, 'tag_name': tag_name})
+        query = 'select * from tags where lower(pid)=:pid and lower(tag)=:tag_name;'
+        self.cursor.execute(query, {'pid': pid.lower(), 'tag_name': tag_name.lower()})
         if len(self.cursor.fetchall()) >= 1:
             return False
         insertion = 'insert into tags values (:pid, :tag_name);'
@@ -325,14 +344,14 @@ class DBManager:
         :param new_body: new body of post (if no value is passed the body field of the post will not be updated)
         """
         if (new_title is not None) and (new_body is not None):
-            update = 'update posts set title=:new_title, body=:new_body where pid=:pid;'
-            self.cursor.execute(update, {'new_title': new_title, 'new_body': new_body, 'pid': pid})
+            update = 'update posts set title=:new_title, body=:new_body where lower(pid)=:pid;'
+            self.cursor.execute(update, {'new_title': new_title, 'new_body': new_body, 'pid': pid.lower()})
         elif new_body is not None:
-            update = 'update posts set body=:new_body where pid=:pid;'
-            self.cursor.execute(update, {'new_body': new_body, 'pid': pid})
+            update = 'update posts set body=:new_body where lower(pid)=:pid;'
+            self.cursor.execute(update, {'new_body': new_body, 'pid': pid.lower()})
         else:
-            update = 'update posts set title=:new_title where pid=:pid;'
-            self.cursor.execute(update, {'new_title': new_title, 'pid': pid})
+            update = 'update posts set title=:new_title where lower(pid)=:pid;'
+            self.cursor.execute(update, {'new_title': new_title, 'pid': pid.lower()})
         self.connection.commit()
 
     def close_connection(self):

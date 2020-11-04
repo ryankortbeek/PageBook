@@ -135,6 +135,7 @@ class LoginScreen(BaseScreen):
             login_pwd = input('> ')
         print('\nLogin Successful')
         sleep(0.5)
+        self.get_uid_from_table(login_uid)
         return login_uid
 
 
@@ -310,12 +311,12 @@ class SearchResultsScreen(BaseScreen):
         :param keywords_to_search: the search keywords specified by the user
         """
         self.keywords = keywords_to_search
-        self.sorted_pid_matches = None
+        self.sorted_search_matches = None
         BaseScreen.__init__(self, db_manager=db_manager)
 
     def _setup(self):
         print('SEARCH RESULTS')
-        self.sorted_pid_matches = self.db_manager.execute_search(self.keywords)
+        self.sorted_search_matches = self.db_manager.execute_search(self.keywords)
 
     def _post_action_prompt(self, current_page, num_matches, page_upper_bound):
         """
@@ -356,21 +357,20 @@ class SearchResultsScreen(BaseScreen):
         :return: a tuple corresponding to the data-fields of the selected post or 'done' if either no posts matched the
                  keywords that were searched or if the user simply selected the return to main menu option
         """
-        if len(self.sorted_pid_matches) == 0:
+        if len(self.sorted_search_matches) == 0:
             print('\nNo posts matched your search - please enter any key to return to the main menu:')
             input('> ')
             return 'done'
-        printable_post_info = self.db_manager.get_printable_post_info(self.sorted_pid_matches)
-        num_matches = len(printable_post_info)
+        num_matches = len(self.sorted_search_matches)
         num_answers = 0
         current_page = 0
         for i in range(num_matches):
-            if len(printable_post_info[i]) == 7:
+            if len(self.sorted_search_matches[i]) == 7:
                 post_is_question = True
-                pid, pdate, title, body, poster, num_answers, num_votes = printable_post_info[i]
+                pid, pdate, title, body, poster, num_answers, num_votes = self.sorted_search_matches[i]
             else:
                 post_is_question = False
-                pid, pdate, title, body, poster, num_votes = printable_post_info[i]
+                pid, pdate, title, body, poster, num_votes = self.sorted_search_matches[i]
             print('\n\t[{}] {}\n'
                   '\t\t{}\n'
                   '\t\tID: {}\tDATE: {}\tPOSTER: {}\tVOTES: {}'
@@ -385,7 +385,7 @@ class SearchResultsScreen(BaseScreen):
                     clear_screen()
                     print('SEARCH RESULTS')
                 else:
-                    return printable_post_info[int(action) - 1]
+                    return self.sorted_search_matches[int(action) - 1]
 
 
 class PostActionScreen(BaseScreen):
@@ -534,13 +534,22 @@ class PostActionScreen(BaseScreen):
         """
         Allows the user to give a badge to the poster of the selected post by providing a badge name.
         """
+        bnames = self.db_manager.get_existing_badges()
+        print('\nThe names of the badges that currently exist are:')
+        for i in range(len(bnames)):
+            bnames[i] = bnames[i].lower()
+            print('\t- {}'.format(bnames[i]))
         print('\nPlease enter the name of the badge that you would like to give to {}:'.format(self.poster))
-        new_badge_name = input('> ')
-        self.db_manager.give_badge(new_badge_name, self.poster)
+        badge_to_give = input('> ')
+        while badge_to_give.lower() not in bnames:
+            print('"{}" is an invalid selection, please enter a valid selection from the menu above.'
+                  .format(badge_to_give))
+            badge_to_give = input('> ')
+        self.db_manager.give_badge(badge_to_give, self.poster)
         clear_screen()
         print('POST ACTION')
         print('\n{} has been given a badge with the name "{}" - please enter any key to return to the main menu:'
-              .format(self.poster, new_badge_name))
+              .format(self.poster, badge_to_give))
         input('> ')
 
     def _add_tag(self):
