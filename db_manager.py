@@ -138,8 +138,12 @@ class DBManager:
         num_ans_query = 'select p.pid, ifnull(count(a.pid), 0) as num_answers ' \
                         'from posts p, answers a ' \
                         'where p.pid=:pid and a.qid=p.pid group by (p.pid)'
-        num_votes_and_questions = 'select pid, num_votes, num_answers ' \
-                                  'from (' + num_votes_query + ') left outer join (' + num_ans_query + ') using (pid)'
+        num_votes_and_questions_a = 'select pid, num_votes, num_answers ' \
+                                    'from (' + num_votes_query + ') left outer join (' + num_ans_query + ') using (pid)'
+        num_votes_and_questions_b = 'select pid, num_votes, num_answers ' \
+                                    'from (' + num_ans_query + ') left outer join (' + num_votes_query + ') using (pid)'
+        # Need to do a full join in order to cover all the possible cases
+        num_votes_and_questions = num_votes_and_questions_a + ' union ' + num_votes_and_questions_b
         question_info_query = 'select p.pid, p.pdate, p.title, p.body, p.poster from posts p where p.pid=:pid'
         query = 'select pid, pdate, title, body, poster, ifnull(num_answers, 0), ifnull(num_votes, 0) ' \
                 'from (' + question_info_query + ') left outer join (' + num_votes_and_questions + ') using (pid);'

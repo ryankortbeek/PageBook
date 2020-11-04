@@ -291,6 +291,9 @@ class SearchScreen(BaseScreen):
         """
         print('\nPlease enter a space separated list of keywords that you would like to search for:')
         search_string = input('> ')
+        while search_string == '':
+            print('You must enter at least one keyword, try again:')
+            search_string = input('> ')
         return search_string.split(' ')
 
 
