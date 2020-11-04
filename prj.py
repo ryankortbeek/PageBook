@@ -63,6 +63,9 @@ class PostBook:
 
 
 def main():
+    """
+    Runs PostBook.
+    """
     assert (len(sys.argv) == 2), 'please enter the correct number of arguments - this program should be run using ' \
                                  '"python3 prj.py PATH_TO_DATABASE"'
     assert path.exists(sys.argv[1]), 'path does not exist - please specify a valid path'

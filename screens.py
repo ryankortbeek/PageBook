@@ -287,7 +287,8 @@ class SearchScreen(BaseScreen):
 
     def run(self):
         """
-
+        Prompts the user to enter one or more space seperated keywords.
+        :return: list consisting of each space seperated keyword as a seperate element.
         """
         print('\nPlease enter a space separated list of keywords that you would like to search for:')
         search_string = input('> ')
@@ -306,7 +307,7 @@ class SearchResultsScreen(BaseScreen):
         """
         Initializes an instance of this class.
         :param db_manager: sqlite database manager
-        :param keywords_to_search:
+        :param keywords_to_search: the search keywords specified by the user
         """
         self.keywords = keywords_to_search
         self.sorted_pid_matches = None
@@ -317,6 +318,16 @@ class SearchResultsScreen(BaseScreen):
         self.sorted_pid_matches = self.db_manager.execute_search(self.keywords)
 
     def _post_action_prompt(self, current_page, num_matches, page_upper_bound):
+        """
+        Prompts the user to select an action between returning to the main menu, seeing more matches (if there are more
+        than 5, and so on), and selecting a post to perform an action on. A max of 5 posts are displayed at once.
+        :param current_page: essentially the number of times the user has selected the see more matches action
+        :param num_matches: total number of posts that contained a least one keyword in either its title, body, or tag
+                            fields
+        :param page_upper_bound: highest numbered matching post that is to be displayed on this page
+        :return: the action that the user selected - will either be a string if they have selected to return to the
+                 main menu or navigate to the next page or a tuple if they want to perform an action on a post
+        """
         valid_inputs = [str(i) for i in range(current_page * 5, page_upper_bound + 1, 1)]
         if num_matches == page_upper_bound:
             valid_inputs += ['a']
@@ -339,9 +350,11 @@ class SearchResultsScreen(BaseScreen):
 
     def run(self):
         """
-        Gets the title and body texts of the question that the user wants to add and then confirms with the user that
-        they want to post the question that they entered - allowing them to either confirm and post their question,
-        re-enter the question title and body, or return to the main menu and not post the question.
+        Displays the results of the search - a max of 5 matching posts are displayed per page. Allows the user to either
+        return to the main menu, navigate to the next page of matches and see up to the next 5 (if possible), or perform
+        an action on one of the displayed posts.
+        :return: a tuple corresponding to the data-fields of the selected post or 'done' if either no posts matched the
+                 keywords that were searched or if the user simply selected the return to main menu option
         """
         if len(self.sorted_pid_matches) == 0:
             print('\nNo posts matched your search - please enter any key to return to the main menu:')
@@ -383,10 +396,12 @@ class PostActionScreen(BaseScreen):
     def __init__(self, db_manager, current_uid, post):
         """
         Initializes an instance of this class.
-        :param current_uid: the uid of the user that is currently logged in (optional parameter)
-        :param db_manager: sqlite database manager (optional parameter)
+        :param db_manager: sqlite database manager
+        :param current_uid: the uid of the user that is currently logged in
+        :param post: a tuple corresponding to the data-fields of the selected post
         """
         if len(post) == 7:
+            # Means its a question
             self.post_is_question = True
             self.pid, self.pdate, self.title, self.body, self.poster, self.num_answers, self.num_votes = post
         else:
@@ -396,6 +411,9 @@ class PostActionScreen(BaseScreen):
         BaseScreen.__init__(self, db_manager=db_manager, current_uid=current_uid)
 
     def _setup(self):
+        """
+        Prints the details of the selected post
+        """
         print('POST ACTION')
         print('\n{}\n'
               '\t{}\n'
@@ -405,6 +423,15 @@ class PostActionScreen(BaseScreen):
             print('\tANSWERS: {}'.format(self.num_answers))
 
     def _display_options(self):
+        """
+        Displays a list of actions that the user can take based on a number of factors. The actions are as
+        follows... Post an answer: available when the selected post is a question and to all users. Vote for a post:
+        available when the user has not already voted on the selected post and to all users. Mark as accepted: only
+        available to privileged users when the selected post is an answer. Give a badge to the poster: only available to
+        privileged users when the poster has not already been given a badge on the current day. Add tags to the post:
+        only available to privileged users. Edit title and/or body of post: only available to privileged users.
+        :return: a dictionary mapping the number to enter to trigger the corresponding action
+        """
         privileged = self.db_manager.check_privilege(self.current_user)
         user_can_vote = self.db_manager.get_vote_eligibility(self.current_user, self.pid)
         poster_can_be_given_badge = self.db_manager.check_badge_eligibility(self.poster)
@@ -438,6 +465,7 @@ class PostActionScreen(BaseScreen):
     def _get_new_answer_data(self):
         """
         Prompts the user to enter the title and body texts of the answer they want to add.
+        :return: tuple consisting of the title and body fields of the answer that they want to add
         """
         print('\nPlease enter the title of your answer:')
         answer_title = input('> ')
@@ -447,9 +475,9 @@ class PostActionScreen(BaseScreen):
 
     def _post_answer(self):
         """
-        Gets the title and body texts of the question that the user wants to add and then confirms with the user that
-        they want to post the question that they entered - allowing them to either confirm and post their question,
-        re-enter the question title and body, or return to the main menu and not post the question.
+        Gets the title and body texts of the answer that the user wants to add and then confirms with the user that
+        they want to post the answer that they entered - allowing them to either confirm and post their answer,
+        re-enter the answer title and body, or return to the main menu and not post the answer.
         """
         valid_inputs = ['Y', 'y', 'E', 'e', 'N', 'n']
         while True:
@@ -471,6 +499,9 @@ class PostActionScreen(BaseScreen):
                 break
 
     def _add_vote(self):
+        """
+        Adds a vote to the selected post.
+        """
         self.db_manager.add_vote(self.pid, self.current_user)
         clear_screen()
         print('POST ACTION')
@@ -478,6 +509,11 @@ class PostActionScreen(BaseScreen):
         input('> ')
 
     def _mark_as_accepted(self):
+        """
+        Gives the privileged user the option to mark the selected post as the accepted answer to the linked question. If
+        the linked question already has an accepted answer, prompts the user and asks if they would still like to change
+        the accepted answer. The user can select to change the accepted answer or leave it unchanged
+        """
         accepted_answer_exists = self.db_manager.check_for_accepted_answer(self.pid)
         if accepted_answer_exists:
             valid_inputs = ['Y', 'y', 'N', 'n']
@@ -495,6 +531,9 @@ class PostActionScreen(BaseScreen):
         input('> ')
 
     def _give_badge(self):
+        """
+        Allows the user to give a badge to the poster of the selected post by providing a badge name.
+        """
         print('\nPlease enter the name of the badge that you would like to give to {}:'.format(self.poster))
         new_badge_name = input('> ')
         self.db_manager.give_badge(new_badge_name, self.poster)
@@ -505,6 +544,9 @@ class PostActionScreen(BaseScreen):
         input('> ')
 
     def _add_tag(self):
+        """
+        Allows the user to add a tag to the post. Confirms that an identical tag has not already been added to the post.
+        """
         print('\nPlease enter the name of the tag that you would like to add to {}:'.format(self.pid))
         tag_name = input('> ')
         success = self.db_manager.add_tag_to_post(self.pid, tag_name)
@@ -519,6 +561,10 @@ class PostActionScreen(BaseScreen):
         input('> ')
 
     def _edit_post(self):
+        """
+        Allows the user to edit the title and/or the body of the post. Other fields are not updated when the selected
+        post is edited.
+        """
         valid_inputs = ['1', '2', '3']
         print('\nPlease select one of the following actions:\n'
               '\t[1] Edit the title of the post\n'
@@ -551,9 +597,13 @@ class PostActionScreen(BaseScreen):
 
     def run(self):
         """
-        Gets the title and body texts of the question that the user wants to add and then confirms with the user that
-        they want to post the question that they entered - allowing them to either confirm and post their question,
-        re-enter the question title and body, or return to the main menu and not post the question.
+        Displays a list of actions that the user can take based on a number of factors then carries out the selected
+        action. The actions are as follows... Post an answer: available when the selected post is a question and to all
+        users. Vote for a post: available when the user has not already voted on the selected post and to all users.
+        Mark as accepted: only available to privileged users when the selected post is an answer. Give a badge to the
+        poster: only available to privileged users when the poster has not already been given a badge on the current
+        day. Add tags to the post: only available to privileged users. Edit title and/or body of post: only available to
+        privileged users. After an action has been completed the user is directed back to the main menu.
         """
         choices = self._display_options()
         valid_inputs = list(choices.keys())
