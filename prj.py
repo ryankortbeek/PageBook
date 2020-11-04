@@ -5,7 +5,7 @@ from screens import *
 from db_manager import *
 
 
-class PostBook:
+class PageBook:
     """
     Runs the program.
     """
@@ -73,12 +73,12 @@ class PostBook:
 
 def main():
     """
-    Runs PostBook.
+    Runs PageBook.
     """
     assert (len(sys.argv) == 2), 'please enter the correct number of arguments - this program should be run using ' \
                                  '"python3 prj.py PATH_TO_DATABASE"'
     assert path.exists(sys.argv[1]), 'path does not exist - please specify a valid path'
-    p = PostBook(sys.argv[1])
+    p = PageBook(sys.argv[1])
     p.run()
 
 

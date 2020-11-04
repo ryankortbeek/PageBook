@@ -51,8 +51,7 @@ class BaseScreen:
 
     def run(self):
         """
-        This should run the functionality supported by the screen and return the next screen. Must be implemented by
-        subclass.
+        This should run the functionality supported by the screen. Must be implemented by subclass.
         """
         return NotImplementedError
 
