@@ -87,7 +87,7 @@ class StartScreen(BaseScreen):
               '\n'
               'Please select the type of user that you are:\n'
               '\t[1] registered user\n'
-              '\t[2] unregistered user\n')
+              '\t[2] unregistered user')
 
     def run(self):
         """
@@ -181,7 +181,7 @@ class SignUpScreen(BaseScreen):
 
 class MainMenuScreen(BaseScreen):
     """
-    Class representing the login screen.
+    Class representing the main menu screen.
     """
 
     def __init__(self, current_uid):
@@ -203,7 +203,7 @@ class MainMenuScreen(BaseScreen):
               '\t[1] Post a question\n'
               '\t[2] Search for posts\n'
               '\t[3] Logout\n'
-              '\t[4] Exit\n'.format(self.current_user))
+              '\t[4] Exit'.format(self.current_user))
 
     def run(self):
         """
@@ -250,8 +250,7 @@ class PostQuestionScreen(BaseScreen):
         re-enter the question title and body, or return to the main menu and not post the question.
         """
         valid_inputs = ['Y', 'y', 'E', 'e', 'N', 'n']
-        confirm = False
-        while not confirm:
+        while True:
             self._get_new_question_data()
             print('\nQuestion Summary\nTitle: {}\nBody: {}\n'.format(self.question_title, self.question_body))
             print('Please select one of the following actions:\n'
@@ -260,9 +259,312 @@ class PostQuestionScreen(BaseScreen):
                   '\t[N/n] To return to the main menu\n')
             selection = select_from_menu(valid_inputs)
             if selection.lower() == 'y':
-                self.db_manager.post_new_question(self.question_title, self.question_body, self.current_user)
-                print('\nQuestion Posted Successfully - you will now be returned to the main menu')
-                sleep(0.5)
+                self.db_manager.new_post(self.question_title, self.question_body, self.current_user)
+                clear_screen()
+                print('POST QUESTION')
+                print('\nQuestion posted successfully - please enter any key to return to the main menu:')
+                input('> ')
                 break
             elif selection.lower() == 'n':
                 break
+
+
+class SearchScreen(BaseScreen):
+    """
+    Class representing the search screen.
+    """
+
+    def __init__(self):
+        """
+        Initializes an instance of this class.
+        """
+        BaseScreen.__init__(self)
+        self.question_title = None
+        self.question_body = None
+
+    def _setup(self):
+        print('SEARCH')
+
+    def run(self):
+        """
+
+        """
+        print('\nPlease enter a space separated list of keywords that you would like to search for:')
+        search_string = input('> ')
+        return search_string.split(' ')
+
+
+class SearchResultsScreen(BaseScreen):
+    """
+    Class representing the search results screen.
+    """
+
+    def __init__(self, db_manager, keywords_to_search):
+        """
+        Initializes an instance of this class.
+        :param db_manager: sqlite database manager
+        :param keywords_to_search:
+        """
+        self.keywords = keywords_to_search
+        self.sorted_pid_matches = None
+        BaseScreen.__init__(self, db_manager=db_manager)
+
+    def _setup(self):
+        print('SEARCH RESULTS')
+        self.sorted_pid_matches = self.db_manager.execute_search(self.keywords)
+
+    def _post_action_prompt(self, current_page, num_matches, page_upper_bound):
+        valid_inputs = [str(i) for i in range(current_page * 5, page_upper_bound + 1, 1)]
+        if num_matches == page_upper_bound:
+            valid_inputs += ['a']
+            print('\nPlease select the action that you would like to take:\n'
+                  '\t[a] Return to the main menu\n'
+                  '\t[#] Enter the number corresponding to the post that you would like to perform an action on')
+        else:
+            valid_inputs += ['a', 'b']
+            print('\nPlease select the action that you would like to take:\n'
+                  '\t[a] Return to the main menu\n'
+                  '\t[b] See more matches\n'
+                  '\t[#] Enter the number corresponding to the post that you would like to perform an action on')
+        selection = select_from_menu(valid_inputs)
+        if selection == 'a':
+            return 'main menu'
+        elif selection == 'b':
+            return 'next page'
+        else:
+            return selection
+
+    def run(self):
+        """
+        Gets the title and body texts of the question that the user wants to add and then confirms with the user that
+        they want to post the question that they entered - allowing them to either confirm and post their question,
+        re-enter the question title and body, or return to the main menu and not post the question.
+        """
+        if len(self.sorted_pid_matches) == 0:
+            print('\nNo posts matched your search - please enter any key to return to the main menu:')
+            input('> ')
+            return 'done'
+        printable_post_info = self.db_manager.get_printable_post_info(self.sorted_pid_matches)
+        num_matches = len(printable_post_info)
+        num_answers = 0
+        current_page = 0
+        for i in range(num_matches):
+            if len(printable_post_info[i]) == 7:
+                post_is_question = True
+                pid, pdate, title, body, poster, num_answers, num_votes = printable_post_info[i]
+            else:
+                post_is_question = False
+                pid, pdate, title, body, poster, num_votes = printable_post_info[i]
+            print('\n\t[{}] {}\n'
+                  '\t\t{}\n'
+                  '\t\tID: {}\tDATE: {}\tPOSTER: {}\tVOTES: {}'
+                  .format(i + 1, title, body, pid, pdate, poster, num_votes))
+            if post_is_question:
+                print('\t\tANSWERS: {}'.format(num_answers))
+            if (((i + 1) % 5 == 0) and (i != 0)) or (i == num_matches - 1):
+                action = self._post_action_prompt(current_page, num_matches, i + 1)
+                if action == 'main menu':
+                    return 'done'
+                elif action == 'next page':
+                    clear_screen()
+                    print('SEARCH RESULTS')
+                else:
+                    return printable_post_info[int(action) - 1]
+
+
+class PostActionScreen(BaseScreen):
+    """
+    Class representing the post action screen.
+    """
+
+    def __init__(self, db_manager, current_uid, post):
+        """
+        Initializes an instance of this class.
+        :param current_uid: the uid of the user that is currently logged in (optional parameter)
+        :param db_manager: sqlite database manager (optional parameter)
+        """
+        if len(post) == 7:
+            self.post_is_question = True
+            self.pid, self.pdate, self.title, self.body, self.poster, self.num_answers, self.num_votes = post
+        else:
+            self.post_is_question = False
+            self.num_answers = None
+            self.pid, self.pdate, self.title, self.body, self.poster, self.num_votes = post
+        BaseScreen.__init__(self, db_manager=db_manager, current_uid=current_uid)
+
+    def _setup(self):
+        print('POST ACTION')
+        print('\n{}\n'
+              '\t{}\n'
+              '\tID: {}\tDATE: {}\tPOSTER: {}\tVOTES: {}'
+              .format(self.title, self.body, self.pid, self.pdate, self.poster, self.num_votes))
+        if self.post_is_question:
+            print('\tANSWERS: {}'.format(self.num_answers))
+
+    def _display_options(self):
+        privileged = self.db_manager.check_privilege(self.current_user)
+        user_can_vote = self.db_manager.get_vote_eligibility(self.current_user, self.pid)
+        poster_can_be_given_badge = self.db_manager.check_badge_eligibility(self.poster)
+        choices = {}
+        action_num = 1
+        print('\nPlease select the action you would like to take:')
+        if self.post_is_question:
+            print('\t[{}] Post an answer'.format(action_num))
+            choices[str(action_num)] = 'post answer'
+            action_num += 1
+        if user_can_vote:
+            print('\t[{}] Vote on the post'.format(action_num))
+            choices[str(action_num)] = 'add vote'
+            action_num += 1
+        if privileged:
+            if not self.post_is_question:
+                print('\t[{}] Mark as the accepted answer'.format(action_num))
+                choices[str(action_num)] = 'mark accepted'
+                action_num += 1
+            if poster_can_be_given_badge:
+                print('\t[{}] Give a badge'.format(action_num))
+                choices[str(action_num)] = 'give badge'
+                action_num += 1
+            print('\t[{}] Add a tag'.format(action_num))
+            choices[str(action_num)] = 'add tag'
+            action_num += 1
+            print('\t[{}] Edit post'.format(action_num))
+            choices[str(action_num)] = 'edit'
+        return choices
+
+    def _get_new_answer_data(self):
+        """
+        Prompts the user to enter the title and body texts of the answer they want to add.
+        """
+        print('\nPlease enter the title of your answer:')
+        answer_title = input('> ')
+        print('\nPlease enter the body of your answer:')
+        answer_body = input('> ')
+        return answer_title, answer_body
+
+    def _post_answer(self):
+        """
+        Gets the title and body texts of the question that the user wants to add and then confirms with the user that
+        they want to post the question that they entered - allowing them to either confirm and post their question,
+        re-enter the question title and body, or return to the main menu and not post the question.
+        """
+        valid_inputs = ['Y', 'y', 'E', 'e', 'N', 'n']
+        while True:
+            answer_title, answer_body = self._get_new_answer_data()
+            print('\nAnswer Summary\nTitle: {}\nBody: {}\n'.format(answer_title, answer_body))
+            print('Please select one of the following actions:\n'
+                  '\t[Y/y] To confirm and post the answer above\n'
+                  '\t[E/e] To re-enter the answer title and body\n'
+                  '\t[N/n] To return to the main menu')
+            selection = select_from_menu(valid_inputs)
+            if selection.lower() == 'y':
+                self.db_manager.new_post(answer_title, answer_body, self.current_user, True, self.pid)
+                clear_screen()
+                print('POST ACTION')
+                print('\nAnswer posted successfully - please enter any key to return to the main menu:')
+                input('> ')
+                break
+            elif selection.lower() == 'n':
+                break
+
+    def _add_vote(self):
+        self.db_manager.add_vote(self.pid, self.current_user)
+        clear_screen()
+        print('POST ACTION')
+        print('\nA vote has been added to the post - please enter any key to return to the main menu:')
+        input('> ')
+
+    def _mark_as_accepted(self):
+        accepted_answer_exists = self.db_manager.check_for_accepted_answer(self.pid)
+        if accepted_answer_exists:
+            valid_inputs = ['Y', 'y', 'N', 'n']
+            print('\nThe question linked to this answer already has an accepted answer - would you like to change it?\n'
+                  '\t[Y/y] To change the accepted answer to this one\n'
+                  '\t[N/n] To leave the accepted answer unchanged and return to the main menu')
+            selection = select_from_menu(valid_inputs)
+            if selection.lower() == 'n':
+                return
+        self.db_manager.update_accepted_answer(self.pid)
+        clear_screen()
+        print('POST ACTION')
+        print('\n{} has been marked as the accepted answer - please enter any key to return to the main menu:'
+              .format(self.pid))
+        input('> ')
+
+    def _give_badge(self):
+        print('\nPlease enter the name of the badge that you would like to give to {}:'.format(self.poster))
+        new_badge_name = input('> ')
+        self.db_manager.give_badge(new_badge_name, self.poster)
+        clear_screen()
+        print('POST ACTION')
+        print('\n{} has been given a badge with the name "{}" - please enter any key to return to the main menu:'
+              .format(self.poster, new_badge_name))
+        input('> ')
+
+    def _add_tag(self):
+        print('\nPlease enter the name of the tag that you would like to add to {}:'.format(self.pid))
+        tag_name = input('> ')
+        success = self.db_manager.add_tag_to_post(self.pid, tag_name)
+        clear_screen()
+        print('POST ACTION')
+        if success:
+            print('\nSuccessfully added tag {} to {} - please enter any key to return to the main menu:'
+                  .format(tag_name, self.pid))
+        else:
+            print('\nUnable to add tag {} to {} as it already exists - '
+                  'please enter any key to return to the main menu:'.format(tag_name, self.pid))
+        input('> ')
+
+    def _edit_post(self):
+        valid_inputs = ['1', '2', '3']
+        print('\nPlease select one of the following actions:\n'
+              '\t[1] Edit the title of the post\n'
+              '\t[2] Edit the body of the post\n'
+              '\t[3] Edit the title and the body of the post')
+        selection = select_from_menu(valid_inputs)
+        msg = '\n'
+        if selection == '2':
+            print('\nPlease enter the new body for the post:')
+            new_body = input('> ')
+            self.db_manager.update_post(self.pid, new_body=new_body)
+            msg += 'Successfully updated the body of post {} - please enter any key to return to the main menu:'
+        elif selection == '1':
+            print('\nPlease enter the new title for the post:')
+            new_title = input('> ')
+            self.db_manager.update_post(self.pid, new_title=new_title)
+            msg += 'Successfully updated the title of post {} - please enter any key to return to the main menu:'
+        else:
+            print('\nPlease enter the new title for the post:')
+            new_title = input('> ')
+            print('\nPlease enter the new body for the post:')
+            new_body = input('> ')
+            self.db_manager.update_post(self.pid, new_title=new_title, new_body=new_body)
+            msg += 'Successfully updated the title and body of post {} - ' \
+                   'please enter any key to return to the main menu:'
+        clear_screen()
+        print('POST ACTION')
+        print(msg.format(self.pid))
+        input('> ')
+
+    def run(self):
+        """
+        Gets the title and body texts of the question that the user wants to add and then confirms with the user that
+        they want to post the question that they entered - allowing them to either confirm and post their question,
+        re-enter the question title and body, or return to the main menu and not post the question.
+        """
+        choices = self._display_options()
+        valid_inputs = list(choices.keys())
+        selection = select_from_menu(valid_inputs)
+        action = choices[selection]
+        if action == 'post answer':
+            self._post_answer()
+        elif action == 'add vote':
+            self._add_vote()
+        elif action == 'mark accepted':
+            self._mark_as_accepted()
+        elif action == 'give badge':
+            self._give_badge()
+        elif action == 'add tag':
+            self._add_tag()
+        elif action == 'edit':
+            self._edit_post()

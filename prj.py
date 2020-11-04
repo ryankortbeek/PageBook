@@ -46,8 +46,13 @@ class PostBook:
                 post_question_screen = PostQuestionScreen(self.current_user, self.db_manager)
                 post_question_screen.run()
             elif task == 'search':
-                # TODO implement search functionality
-                pass
+                search_screen = SearchScreen()
+                keywords_to_search = search_screen.run()
+                search_results_screen = SearchResultsScreen(self.db_manager, keywords_to_search)
+                action = search_results_screen.run()
+                if action != 'done':
+                    post_action_screen = PostActionScreen(self.db_manager, self.current_user, action)
+                    post_action_screen.run()
             elif task == 'logout':
                 self.current_user = None
             # Happens when task == 'exit'
