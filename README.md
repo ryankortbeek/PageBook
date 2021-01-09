@@ -10,7 +10,7 @@ PageBook is a command line program that allows users to post questions and answe
 ## Installation
 1. Download source (clone repo)
 
-2. Ensure sqlite3 is installed
+2. Ensure sqlite3 is installed (see [here](https://www.sqlite.org/download.html) for more info)
 
 3. Ensure pysqlite is installed
 
