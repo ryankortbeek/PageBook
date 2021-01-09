@@ -1,7 +1,7 @@
 # PageBook
-This repo showcases some of the possibilities that result from using SQL in a host programming language. Specifically, PageBook uses a Python interface to SQLite3 via pysqlite and is a command line program.
+This repo showcases some of the possibilities that result from using SQL in a host programming language. Specifically, PageBook uses a Python interface to SQLite3 via pysqlite.
 
-PageBook allows users to post questions and answers, search posts, or vote on a post and further allows priveleged users to mark an answer as the accepted answer for a question, give a badge to another user, add a tag to a post, or edit the title and/or body of a post. Unregistered users can also sign up and login by providing a unique username along with other info. 
+PageBook is a command line program that allows users to post questions and answers, search posts, or vote on a post and further allows priveleged users to mark an answer as the accepted answer for a question, give a badge to another user, add a tag to a post, or edit the title and/or body of a post. Unregistered users can also sign up and login by providing a unique username along with other info. The database is updated accordingly.
 
 ## Developers
 - Ryan Kortbeek
