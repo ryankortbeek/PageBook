@@ -87,7 +87,10 @@ users
 already been given a badge on the current day
 - Add tags to the post: only available to privileged users
 - Edit title and/or body of post: only available to privileged users
-After an action has been completed the user is directed back to the main menu. Notable private methods:
+
+After an action has been completed the user is directed back to the main menu. 
+
+Notable private methods:
 - def display_options 
 - def add_vote
 - def get_new_answer_data
